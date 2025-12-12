@@ -122,7 +122,8 @@ npm run autonomous:heal
 ├── scripts/                    # Utility scripts (PowerShell, TS)
 ├── .github/
 │   ├── workflows/             # GitHub Actions (CI/CD, cron jobs)
-│   └── instructions/          # Additional instruction files
+│   ├── instructions/          # Additional instruction files (e.g., snyk_rules)
+│   └── copilot-instructions.md # Copilot coding agent instructions
 ├── config/                     # External configuration
 ├── data/                       # Data files
 ├── docs/                       # Documentation
@@ -242,7 +243,6 @@ Required API keys (see `.env.template` for full list):
 - Output syncs to Google Sheets (ID: `1u1USJDfPR5qZSb6-Zs4JyIyDFLLLfZhHKr1KJcFKrgU`)
 - Smart contracts deploy to Sepolia testnet
 - Dashboard serves on port 4000
-- There are merge conflicts in `package.json` that may need resolution
 
 ## Common Tasks for Copilot
 
