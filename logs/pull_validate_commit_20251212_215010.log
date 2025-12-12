@@ -69,3 +69,14 @@ error TS2688: Cannot find type definition file for 'node'.
 [2025-12-12 21:50:34] [INFO] Step 3: Auto-commit
 [2025-12-12 21:50:34] [INFO] Changes detected, preparing to commit...
 [2025-12-12 21:50:34] [INFO] Staging all changes...
+[2025-12-12 21:50:34] [INFO] Creating commit...
+[copilot/review-terminal-pull-request a121dac] Auto-commit: Pull, validate, and commit workflow - 2025-12-12 21:50:34
+ 2 files changed, 335 insertions(+)
+ create mode 100644 logs/pull_validate_commit_20251212_215010.log
+ create mode 100755 scripts/pull-validate-commit.sh
+[2025-12-12 21:50:34] [SUCCESS] ✓ Commit created successfully
+[2025-12-12 21:50:34] [SUCCESS] ✓ Commit hash: a121dac
+[2025-12-12 21:50:34] [INFO] Workflow completed
+[2025-12-12 21:50:34] [INFO] Branch: copilot/review-terminal-pull-request
+[2025-12-12 21:50:34] [INFO] Validation status: PASSED
+[2025-12-12 21:50:34] [INFO] Log file saved: /home/runner/work/Real_Estate_Intelligence/Real_Estate_Intelligence/logs/pull_validate_commit_20251212_215010.log

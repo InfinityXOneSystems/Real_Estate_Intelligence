@@ -37,7 +37,8 @@
     "autonomous:heal": "powershell -File scripts/autonomous-agent.ps1 -Mode heal",
     "autonomous:optimize": "powershell -File scripts/autonomous-agent.ps1 -Mode optimize",
     "autonomous:enhance": "powershell -File scripts/autonomous-agent.ps1 -Mode enhance",
-    "autonomous:monitor": "powershell -File scripts/autonomous-agent.ps1 -Mode monitor"
+    "autonomous:monitor": "powershell -File scripts/autonomous-agent.ps1 -Mode monitor",
+    "workflow:pull-validate-commit": "bash scripts/pull-validate-commit.sh"
   },
   "keywords": [
     "real-estate",
