@@ -1,0 +1,130 @@
+# ===============================================
+# .dockerignore - Optimize Docker build
+# ===============================================
+
+# Node modules (will be installed in container)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Logs
+logs/
+*.log
+reports/
+
+# Environment files (use .env.production)
+.env
+.env.local
+.env.development
+.env.test
+
+# Git
+.git/
+.github/
+.gitignore
+.gitattributes
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Documentation
+*.md
+!README.md
+docs/
+
+# Test files
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+__tests__/
+coverage/
+.nyc_output/
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+temp_files.json
+orchestration_output.txt
+validation_run.txt
+
+# Archives
+*.zip
+*.tar
+*.gz
+*.tgz
+
+# Data directories (exclude from build)
+data/archive/
+ml-models/
+taxonomy/
+workflows/
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# MacOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Deployment files (not needed in container)
+Dockerfile
+Dockerfile.*
+docker-compose.yml
+.dockerignore
+cloudbuild*.yaml
+.gcloudignore
+
+# CI/CD
+.travis.yml
+.circleci/
+azure-pipelines.yml
+
+# Enterprise/agent folders (too large for container)
+agents/
+enterprise/
+contracts/hardhat.config.ts
+hardhat.config.ts
+
+# Scripts (not needed in production)
+scripts/
+*.ps1
+*.sh
+
+# Documentation files
+ANALYSIS_INDEX.md
+API_VALIDATION_REPORT.md
+AUTO_FEATURES_INDEX.md
+COMPLETION_ROADMAP.md
+COMPLIANCE_STANDARDS_FRAMEWORK.md
+COMPREHENSIVE_SYSTEM_ANALYSIS.md
+DEPLOYMENT_CHECKLIST.md
+DEPLOYMENT_COMPLETE.md
+ENTERPRISE_TRANSFORMATION_ROADMAP.md
+FIRESTORE_MULTIMODEL_INTEGRATION.md
+IMPLEMENTATION_SUMMARY_AUTO_FEATURES.md
+INDEX.md
+KEYWORD_DATABASE_GUIDE.md
+MEMORY_SYSTEM_GUIDE.md
+PROJECT_COMPLETE.md
+QUICK_REFERENCE_AUTO_FEATURES.md
+README_AUTONOMOUS.md
+Real_estate_Intelligence_Documentation.md
+STARTUP_GUIDE.md
+SYSTEM_ANALYSIS_SUMMARY.md
+SYSTEM_MANIFEST.md

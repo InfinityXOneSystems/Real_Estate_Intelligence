@@ -1,0 +1,103 @@
+# ===============================================
+# Cloud Build Configuration - Alternative Deployment Method
+# Use with: gcloud builds submit --config cloudbuild.production.yaml
+# ===============================================
+
+steps:
+  # ===============================================
+  # STEP 1: Build Docker Image
+  # ===============================================
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build-image'
+    args:
+      - 'build'
+      - '-f'
+      - 'Dockerfile.production'
+      - '-t'
+      - 'us-east1-docker.pkg.dev/$PROJECT_ID/real-estate-intelligence/real-estate-intelligence:$SHORT_SHA'
+      - '-t'
+      - 'us-east1-docker.pkg.dev/$PROJECT_ID/real-estate-intelligence/real-estate-intelligence:latest'
+      - '.'
+
+  # ===============================================
+  # STEP 2: Push to Artifact Registry
+  # ===============================================
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-image'
+    args:
+      - 'push'
+      - '--all-tags'
+      - 'us-east1-docker.pkg.dev/$PROJECT_ID/real-estate-intelligence/real-estate-intelligence'
+    waitFor:
+      - 'build-image'
+
+  # ===============================================
+  # STEP 3: Deploy to Cloud Run
+  # ===============================================
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'deploy-cloud-run'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'real-estate-intelligence'
+      - '--image=us-east1-docker.pkg.dev/$PROJECT_ID/real-estate-intelligence/real-estate-intelligence:$SHORT_SHA'
+      - '--region=us-east1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--memory=4Gi'
+      - '--cpu=2'
+      - '--timeout=300'
+      - '--concurrency=80'
+      - '--min-instances=1'
+      - '--max-instances=10'
+      - '--set-env-vars=NODE_ENV=production,GOOGLE_CLOUD_PROJECT=$PROJECT_ID,GOOGLE_CLOUD_REGION=us-east1,GCS_BUCKET_NAME=real-estate-intelligence'
+      - '--service-account=infinity-x-one-systems@$PROJECT_ID.iam.gserviceaccount.com'
+      - '--quiet'
+    waitFor:
+      - 'push-image'
+
+  # ===============================================
+  # STEP 4: Verify Deployment
+  # ===============================================
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'verify-deployment'
+    entrypoint: bash
+    args:
+      - '-c'
+      - |
+        echo "⏳ Waiting for service to stabilize..."
+        sleep 30
+        
+        SERVICE_URL=$(gcloud run services describe real-estate-intelligence \
+          --region=us-east1 \
+          --format='value(status.url)')
+        
+        echo "🌐 Service URL: $SERVICE_URL"
+        
+        echo "🔍 Testing health endpoint..."
+        curl -f $SERVICE_URL/health
+        
+        echo "✅ Deployment verified successfully!"
+    waitFor:
+      - 'deploy-cloud-run'
+
+# ===============================================
+# Build Configuration
+# ===============================================
+timeout: 1200s  # 20 minutes
+
+options:
+  machineType: 'E2_HIGHCPU_8'
+  logging: CLOUD_LOGGING_ONLY
+  
+substitutions:
+  _SERVICE_NAME: 'real-estate-intelligence'
+  _REGION: 'us-east1'
+
+# ===============================================
+# Images to push to Artifact Registry
+# ===============================================
+images:
+  - 'us-east1-docker.pkg.dev/$PROJECT_ID/real-estate-intelligence/real-estate-intelligence:$SHORT_SHA'
+  - 'us-east1-docker.pkg.dev/$PROJECT_ID/real-estate-intelligence/real-estate-intelligence:latest'

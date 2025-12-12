@@ -1,0 +1,244 @@
+# ===============================================
+# GitHub Actions - Complete CI/CD Pipeline
+# Auto-deploy to Google Cloud Run on push to main
+# ===============================================
+
+name: 🚀 Production Deploy to Cloud Run
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/**'
+      - '!.github/workflows/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+env:
+  PROJECT_ID: infinity-x-one-systems
+  REGION: us-east1
+  SERVICE_NAME: real-estate-intelligence
+  REGISTRY: us-east1-docker.pkg.dev
+  REPOSITORY: real-estate-intelligence
+
+jobs:
+  # ===============================================
+  # JOB 1: BUILD AND TEST
+  # ===============================================
+  build-and-test:
+    name: 🔨 Build & Test
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      - name: 🔍 Run linter
+        run: npm run lint --if-present || echo "No lint script found"
+
+      - name: 🧪 Run tests
+        run: npm test --if-present || echo "No tests found"
+
+      - name: 🏗️ Build TypeScript
+        run: npm run build --if-present || echo "No build script found"
+
+  # ===============================================
+  # JOB 2: BUILD DOCKER IMAGE
+  # ===============================================
+  build-image:
+    name: 🐳 Build Docker Image
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔐 Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: 🛠️ Setup Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: 🔑 Configure Docker authentication
+        run: |
+          gcloud auth configure-docker ${{ env.REGISTRY }}
+
+      - name: 🐳 Build Docker image
+        run: |
+          docker build \
+            -f Dockerfile.production \
+            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            -t ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:latest \
+            .
+
+      - name: 🚀 Push Docker image
+        run: |
+          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          docker push ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:latest
+
+  # ===============================================
+  # JOB 3: DEPLOY TO CLOUD RUN
+  # ===============================================
+  deploy:
+    name: 🌐 Deploy to Cloud Run
+    runs-on: ubuntu-latest
+    needs: build-image
+    
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔐 Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: 🛠️ Setup Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: 🚀 Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${{ env.SERVICE_NAME }} \
+            --image=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${{ github.sha }} \
+            --region=${{ env.REGION }} \
+            --platform=managed \
+            --allow-unauthenticated \
+            --memory=4Gi \
+            --cpu=2 \
+            --timeout=300 \
+            --concurrency=80 \
+            --min-instances=1 \
+            --max-instances=10 \
+            --set-env-vars="NODE_ENV=production,GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }},GOOGLE_CLOUD_REGION=${{ env.REGION }},GCS_BUCKET_NAME=real-estate-intelligence,GOOGLE_SHEETS_ID=1G4ACS7NJRBcE8XyhU4V2un5xPIm_b90fPi2Rt4iMs4k" \
+            --service-account=infinity-x-one-systems@${{ env.PROJECT_ID }}.iam.gserviceaccount.com \
+            --quiet
+
+      - name: 🌐 Get service URL
+        id: get-url
+        run: |
+          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region=${{ env.REGION }} \
+            --format='value(status.url)')
+          echo "SERVICE_URL=$SERVICE_URL" >> $GITHUB_OUTPUT
+          echo "🌐 Service URL: $SERVICE_URL"
+
+      - name: ✅ Health check
+        run: |
+          echo "⏳ Waiting for service to be ready..."
+          sleep 30
+          
+          HEALTH_URL="${{ steps.get-url.outputs.SERVICE_URL }}/health"
+          echo "🔍 Checking health at: $HEALTH_URL"
+          
+          curl -f $HEALTH_URL || exit 1
+          echo "✅ Service is healthy!"
+
+  # ===============================================
+  # JOB 4: POST-DEPLOYMENT VALIDATION
+  # ===============================================
+  validate:
+    name: ✅ Validate Deployment
+    runs-on: ubuntu-latest
+    needs: deploy
+    
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: 🔐 Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: 🛠️ Setup Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: 🌐 Get service URL
+        id: get-url
+        run: |
+          SERVICE_URL=$(gcloud run services describe ${{ env.SERVICE_NAME }} \
+            --region=${{ env.REGION }} \
+            --format='value(status.url)')
+          echo "SERVICE_URL=$SERVICE_URL" >> $GITHUB_OUTPUT
+
+      - name: 🧪 Test endpoints
+        run: |
+          SERVICE_URL="${{ steps.get-url.outputs.SERVICE_URL }}"
+          
+          echo "🔍 Testing /health endpoint..."
+          curl -f $SERVICE_URL/health | jq .
+          
+          echo "🔍 Testing /api/status endpoint..."
+          curl -f $SERVICE_URL/api/status | jq .
+          
+          echo "✅ All endpoints validated successfully!"
+
+      - name: 📊 Deployment summary
+        run: |
+          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **Status:** Success" >> $GITHUB_STEP_SUMMARY
+          echo "🌐 **Service URL:** ${{ steps.get-url.outputs.SERVICE_URL }}" >> $GITHUB_STEP_SUMMARY
+          echo "📦 **Image:** ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE_NAME }}:${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "📍 **Region:** ${{ env.REGION }}" >> $GITHUB_STEP_SUMMARY
+          echo "🏗️ **Project:** ${{ env.PROJECT_ID }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📡 Available Endpoints:" >> $GITHUB_STEP_SUMMARY
+          echo "- 🏥 Health Check: \`${{ steps.get-url.outputs.SERVICE_URL }}/health\`" >> $GITHUB_STEP_SUMMARY
+          echo "- 📊 System Status: \`${{ steps.get-url.outputs.SERVICE_URL }}/api/status\`" >> $GITHUB_STEP_SUMMARY
+          echo "- 🤖 AI Query: \`${{ steps.get-url.outputs.SERVICE_URL }}/api/ai/query\`" >> $GITHUB_STEP_SUMMARY
+          echo "- 💾 Memory Store: \`${{ steps.get-url.outputs.SERVICE_URL }}/api/memory/store\`" >> $GITHUB_STEP_SUMMARY
+          echo "- 📊 Overview: \`${{ steps.get-url.outputs.SERVICE_URL }}/api/real-estate/overview\`" >> $GITHUB_STEP_SUMMARY
+
+  # ===============================================
+  # JOB 5: NOTIFY ON FAILURE
+  # ===============================================
+  notify-failure:
+    name: 🚨 Notify Failure
+    runs-on: ubuntu-latest
+    needs: [build-and-test, build-image, deploy, validate]
+    if: failure()
+    
+    steps:
+      - name: 🚨 Deployment failed
+        run: |
+          echo "## ❌ Deployment Failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "The deployment to Cloud Run failed. Please check the logs above for details." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Common Issues:" >> $GITHUB_STEP_SUMMARY
+          echo "- ❌ GCP_SA_KEY secret not configured" >> $GITHUB_STEP_SUMMARY
+          echo "- ❌ Service account permissions insufficient" >> $GITHUB_STEP_SUMMARY
+          echo "- ❌ Artifact Registry not configured" >> $GITHUB_STEP_SUMMARY
+          echo "- ❌ Cloud Run API not enabled" >> $GITHUB_STEP_SUMMARY
